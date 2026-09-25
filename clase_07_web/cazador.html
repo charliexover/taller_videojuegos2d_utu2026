@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>Cazador de Estrellas</title>
+    <style>
+        canvas {
+            touch-action: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="juego" width="600" height="400"></canvas>
+    <script>
+        const canvas = document.getElementById("juego");
+        const ctx = canvas.getContext("2d");
+        const sonidoEstrella = new Audio("assets/SFX1.mp3");
+        let x = 300; // posición del cazador
+        const velocidad = 5;
+        let perder = false;
+        let estrellaX = 100, estrellaY = 0, caida = 2;
+        let estrellaRojaX = 400, estrellaRojaY = 0, caidaRoja = 4;
+        let puntos = 0;
+        const teclas = {};
+        document.addEventListener("keydown", e => teclas[e.key] = true);
+        document.addEventListener("keyup", e => teclas[e.key] = false);
+
+        function moverConTouch(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const escalaX = canvas.width / rect.width;
+            x = (touch.clientX - rect.left) * escalaX;
+            x = Math.max(20, Math.min(580, x));
+        }
+
+        canvas.addEventListener("touchstart", moverConTouch, { passive: false });
+        canvas.addEventListener("touchmove", moverConTouch, { passive: false });
+
+        function reproducirSonido() {
+            sonidoEstrella.currentTime = 0;
+            sonidoEstrella.play().catch(error => {
+                console.error("No se pudo reproducir el sonido:", error);
+            });
+        }
+        function actualizar() {
+            if (teclas["ArrowLeft"]) x -= velocidad;
+            if (teclas["ArrowRight"]) x += velocidad;
+            x = Math.max(20, Math.min(580, x)); // no salirse
+            
+            // La estrella cae
+            estrellaY += caida;
+            estrellaRojaY += caidaRoja;
+
+            if (estrellaY > 400) { // se cayó sin atrapar
+                    estrellaY = 0;
+                    estrellaX = Math.random() * 580;
+                puntos -= 1;
+                
+                if (puntos < -2) {
+                    perder = true;
+                    alert("Perdiste");
+                    puntos = 0;
+                }    
+            }
+
+            if (estrellaRojaY > 400) {
+                estrellaRojaY = 0;
+                estrellaRojaX = Math.random() * 580;
+            }
+            
+            // ¿La atrapaste?
+            if (Math.abs(estrellaRojaX - x) < 30 && estrellaRojaY > 360) {
+                reproducirSonido();
+                puntos += 1;
+                estrellaRojaY = 0;
+                estrellaRojaX = Math.random() * 580;
+            }
+            
+            if (Math.abs(estrellaX - x) < 30 && estrellaY > 360) {
+                reproducirSonido();
+                puntos += 1;
+                caida = 2 + puntos * 0.2;
+                estrellaY = 0;
+                estrellaX = Math.random() * 580;
+            }
+        }
+        function dibujar() {
+            ctx.fillStyle = "#0a0a2e";
+            ctx.fillRect(0, 0, 600, 400);
+            ctx.fillStyle = "#ffd700";
+            ctx.beginPath();
+            ctx.arc(estrellaX, estrellaY, 10, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "red";
+            ctx.beginPath();
+            ctx.arc(estrellaRojaX, estrellaRojaY, 10, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = "#00ccff";
+            ctx.fillRect(x - 25, 370, 50, 12);
+            ctx.fillStyle = "white";
+            ctx.font = "20px monospace";
+            ctx.fillText("Puntos: " + puntos, 10, 24);
+        }
+        function loop() {
+            actualizar();
+            dibujar();
+            requestAnimationFrame(loop);
+        }
+        loop();
+    </script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>Frogger</title>
+    <style>
+        body {
+            margin: 0;
+            background: #17202a;
+            color: white;
+            font-family: sans-serif;
+            text-align: center;
+        }
+
+        canvas {
+            display: block;
+            width: min(600px, 100vw);
+            height: auto;
+            margin: 16px auto;
+            background: #4caf50;
+            touch-action: none;
+        }
+
+        button {
+            padding: 8px 16px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="juego" width="600" height="400"></canvas>
+    <button id="reiniciar" hidden>Jugar de nuevo</button>
+    <script>
+        const canvas = document.getElementById("juego");
+        const ctx = canvas.getContext("2d");
+        const reiniciar = document.getElementById("reiniciar");
+        const ancho = canvas.width;
+        const alto = canvas.height;
+        const tamanoJugador = 24;
+        const jugadorInicial = { x: ancho / 2, y: alto - 28 };
+        const jugador = { ...jugadorInicial };
+        const velocidadPaso = 40;
+        const coches = [
+            { x: 20, y: 105, ancho: 70, alto: 26, velocidad: 2.2, color: "#e74c3c" },
+            { x: 250, y: 105, ancho: 90, alto: 26, velocidad: 2.2, color: "#f1c40f" },
+            { x: 100, y: 165, ancho: 80, alto: 26, velocidad: -3, color: "#3498db" },
+            { x: 420, y: 165, ancho: 65, alto: 26, velocidad: -3, color: "#9b59b6" },
+            { x: 0, y: 225, ancho: 100, alto: 26, velocidad: 1.8, color: "#e67e22" },
+            { x: 330, y: 225, ancho: 75, alto: 26, velocidad: 1.8, color: "#ecf0f1" },
+            { x: 180, y: 285, ancho: 65, alto: 26, velocidad: -2.5, color: "#1abc9c" },
+            { x: 500, y: 285, ancho: 80, alto: 26, velocidad: -2.5, color: "#e84393" }
+        ];
+        let puntos = 0;
+        let vidas = 3;
+        let terminado = false;
+
+        function moverJugador(dx, dy) {
+            jugador.x = Math.max(tamanoJugador / 2, Math.min(ancho - tamanoJugador / 2, jugador.x + dx));
+            jugador.y = Math.max(tamanoJugador / 2, Math.min(alto - tamanoJugador / 2, jugador.y + dy));
+        }
+
+        document.addEventListener("keydown", e => {
+            const movimientos = {
+                ArrowLeft: [-velocidadPaso, 0],
+                ArrowRight: [velocidadPaso, 0],
+                ArrowUp: [0, -velocidadPaso],
+                ArrowDown: [0, velocidadPaso]
+            };
+            if (movimientos[e.key]) {
+                e.preventDefault();
+                moverJugador(...movimientos[e.key]);
+            }
+        });
+
+        let toqueInicial = null;
+        canvas.addEventListener("touchstart", e => {
+            e.preventDefault();
+            const toque = e.touches[0];
+            toqueInicial = { x: toque.clientX, y: toque.clientY };
+        }, { passive: false });
+
+        canvas.addEventListener("touchend", e => {
+            e.preventDefault();
+            if (!toqueInicial || terminado) return;
+            const toque = e.changedTouches[0];
+            const dx = toque.clientX - toqueInicial.x;
+            const dy = toque.clientY - toqueInicial.y;
+            if (Math.abs(dx) > Math.abs(dy)) {
+                moverJugador(dx > 0 ? velocidadPaso : -velocidadPaso, 0);
+            } else if (Math.abs(dy) > 10) {
+                moverJugador(0, dy > 0 ? velocidadPaso : -velocidadPaso);
+            }
+            toqueInicial = null;
+        }, { passive: false });
+
+        function reiniciarJugador() {
+            jugador.x = jugadorInicial.x;
+            jugador.y = jugadorInicial.y;
+        }
+
+        function hayColision(a, b) {
+            return Math.abs(a.x - b.x) < (tamanoJugador + b.ancho) / 2 &&
+                Math.abs(a.y - b.y) < (tamanoJugador + b.alto) / 2;
+        }
+
+        function actualizar() {
+            if (terminado) return;
+
+            coches.forEach(coche => {
+                coche.x += coche.velocidad;
+                if (coche.velocidad > 0 && coche.x > ancho + coche.ancho / 2) {
+                    coche.x = -coche.ancho / 2;
+                }
+                if (coche.velocidad < 0 && coche.x < -coche.ancho / 2) {
+                    coche.x = ancho + coche.ancho / 2;
+                }
+                if (hayColision(jugador, coche)) {
+                    vidas -= 1;
+                    reiniciarJugador();
+                    if (vidas === 0) terminar(false);
+                }
+            });
+
+            if (jugador.y <= 28) {
+                puntos += 1;
+                reiniciarJugador();
+                if (puntos === 5) terminar(true);
+            }
+        }
+
+        function terminar(gano) {
+            terminado = true;
+            reiniciar.hidden = false;
+            reiniciar.textContent = gano ? "Ganaste. Jugar de nuevo" : "Perdiste. Intentar de nuevo";
+        }
+
+        function dibujar() {
+            ctx.fillStyle = "#4caf50";
+            ctx.fillRect(0, 0, ancho, alto);
+            ctx.fillStyle = "#34495e";
+            ctx.fillRect(0, 80, ancho, 240);
+            ctx.strokeStyle = "#f1c40f";
+            ctx.setLineDash([25, 20]);
+            for (let y = 140; y < 320; y += 60) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(ancho, y);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+
+            coches.forEach(coche => {
+                ctx.fillStyle = coche.color;
+                ctx.fillRect(coche.x - coche.ancho / 2, coche.y - coche.alto / 2, coche.ancho, coche.alto);
+                ctx.fillStyle = "#d5f5e3";
+                ctx.fillRect(coche.x - coche.ancho / 4, coche.y - coche.alto / 2 + 4, coche.ancho / 2, 8);
+            });
+
+            ctx.fillStyle = "#2ecc71";
+            ctx.beginPath();
+            ctx.arc(jugador.x, jugador.y, tamanoJugador / 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#17202a";
+            ctx.beginPath();
+            ctx.arc(jugador.x - 6, jugador.y - 5, 3, 0, Math.PI * 2);
+            ctx.arc(jugador.x + 6, jugador.y - 5, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "white";
+            ctx.font = "18px sans-serif";
+            ctx.fillText("Llegadas: " + puntos + "/5   Vidas: " + vidas, 12, 28);
+            ctx.fillText("Cruza hasta la zona verde superior", 12, 390);
+        }
+
+        reiniciar.addEventListener("click", () => {
+            puntos = 0;
+            vidas = 3;
+            terminado = false;
+            reiniciarJugador();
+            reiniciar.hidden = true;
+        });
+
+        function loop() {
+            actualizar();
+            dibujar();
+            requestAnimationFrame(loop);
+        }
+        loop();
+    </script>
+</body>
+</html>
